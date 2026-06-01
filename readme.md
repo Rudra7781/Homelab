@@ -55,7 +55,7 @@ This is structurally DMZ-shaped but enforced as a **three-legged firewall**: one
 
 **NAT.** Outbound `MASQUERADE` on `eth0` only. No inbound port forwards from the home LAN. The only inbound path into the lab is WireGuard.
 
-**IPv6.** Incus assigns ULA addresses (`fd42::/64`) to every container, but no `ip6tables` rules are configured. The v6 plane is currently unenforced — flagged as a gap.
+**IPv6.** Incus assigns ULA addresses (`fd42::/64`) to every container, but no `ip6tables` rules are configured. The v6 plane is currently unenforced.
 
 ## Firewall
 
@@ -63,7 +63,7 @@ Default policies:
 
 - `INPUT`: ACCEPT
 - `OUTPUT`: ACCEPT
-- `FORWARD`: **DROP** — this is the segmentation
+- `FORWARD`: **DROP**, this is the segmentation
 
 FORWARD ACCEPT rules:
 
@@ -85,7 +85,7 @@ ACCEPT  all   eth0  *     0.0.0.0/0        0.0.0.0/0    RELATED,ESTABLISHED
 
 - Apache 2.4 on Debian
 - DocumentRoot: `/var/www/html/nextcloud`
-- Listens on port 443 only — port 80 is closed (see debugging story 1)
+- Listens on port 443 only as port 80 is closed (see debugging story 1)
 - Self-signed cert at `/etc/ssl/certs/nextcloud.crt`
 - `overwriteprotocol=https`, `trusted_domains` set
 
@@ -100,61 +100,8 @@ ACCEPT  all   eth0  *     0.0.0.0/0        0.0.0.0/0    RELATED,ESTABLISHED
 - UDP/51820
 - Tunnel network: `10.200.0.0/24`, router at `10.200.0.1`
 - One peer (laptop) at `10.200.0.2`
-- Explicit per-interface ACCEPT rules grant the WG client reach into all four internal segments
+- A single ACCEPT rule (wg0 → eth3) grants the WG client reach into the app tier only. The other three segments are not reachable over the tunnel.
 
-## Debugging Stories
-
-The most valuable part of running a homelab is what breaks. Three real ones:
-
-### 1. WireGuard "encryption" was not protecting credentials
-
-**Symptom:** A Wireshark capture on the router's `wg0` interface during a Nextcloud login showed the password in cleartext.
-
-**Root cause:** WireGuard encrypts the tunnel hop only (laptop ↔ router). Once packets are decrypted at `wg0`, they continue as normal IP. Nextcloud was being accessed over HTTP, so the application layer was never encrypted. I had assumed VPN = end-to-end protection. It is not.
-
-**Fix:** Removed `Listen 80` from Apache's `ports.conf`, deleted the `*:80` vhost from `nextcloud.conf`, verified only 443 listening via `ss -tlnp`. Re-captured. Payload was TLS, password no longer visible.
-
-**Lesson:** Network-layer encryption is not end-to-end. The wire is not the trust boundary — the application is. Always run TLS at the app layer regardless of what's happening below it.
-
-### 2. WireGuard peer silently dropped from runtime config
-
-**Symptom:** `wg show` reported the interface up and listening on UDP/51820 but no peer registered, despite a `[Peer]` block in the config.
-
-**Root cause:** Two bugs at once.
-
-1. The client public key in the config was identical to the server's own public key — a key-generation copy-paste error. WireGuard silently refuses to register a peer whose pubkey matches the interface.
-2. The directive was written as `AllowedIps` instead of `AllowedIPs`. `wg-quick` is case-sensitive and silently ignores unknown keys. A peer with no `AllowedIPs` is invalid and gets dropped.
-
-**Fix:** Regenerated all four keys using separate `wg genkey > file` and `wg pubkey < file > pubfile` calls. Verified the four key strings were distinct. Corrected the casing.
-
-**Lesson:** When `wg show` is silent about a peer that should exist, the failure is parsing, not networking. First check: does the interface pubkey shown by `wg show` differ from the configured peer pubkey? Second check: case-sensitive directive names.
-
-### 3. Locked myself out by closing port 80
-
-**Symptom:** Typing `10.0.20.17` into a browser failed with "site can't be reached", right after I'd successfully tightened the Apache config.
-
-**Root cause:** Browsers default to `http://` for bare-IP URLs. Apache was not broken — it was correctly refusing connections on a port it no longer listened on.
-
-**Fix:** Enabled HTTPS-First mode in the browser. Bookmarked `https://10.0.20.17` explicitly.
-
-**Lesson:** Removing services has UX consequences. When tightening security, the listening-port surface is not the whole picture — the user's first interaction with the new state (bookmarks, browser autocomplete, default URL schemes) matters too.
-
-## Roadmap
-
-Committed:
-
-- **Monitoring** — Prometheus and Grafana, probably on one of the unused testbed containers
-
-Candidate list (not committed):
-
-- Internal CA via `step-ca` to replace self-signed certs
-- IPv6 firewall rules
-- Per-port internal segmentation (tighten the blanket `10.0.0.0/16` rule)
-- Suricata IDS on the router
-- Hostname migration from `.local` to `.lan`
-- Automated backups for Nextcloud and Postgres
-- Second WireGuard client for mobile
-- Second enforcement point to convert the three-legged firewall into a true DMZ
 
 ## Tech Stack
 
