@@ -102,6 +102,14 @@ ACCEPT  all   eth0  *     0.0.0.0/0        0.0.0.0/0    RELATED,ESTABLISHED
 - One peer (laptop) at `10.200.0.2`
 - A single ACCEPT rule (wg0 → eth3) grants the WG client reach into the app tier only. The other three segments are not reachable over the tunnel.
 
+## Roadmap
+
+**Committed:**
+Close the architectural gaps this README documents:
+
+- Add a second enforcement point between the app and DB tiers, converting the three-legged firewall into a true DMZ. Compromise of the front tier no longer means flat access to the backend.
+- Replace the blanket `10.0.0.0/16 -> anywhere` rule with per-port rules between zones (app to DB on 5432 only, etc).
+
 
 ## Tech Stack
 
