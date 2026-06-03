@@ -37,7 +37,7 @@ The lab runs entirely in Incus containers. No VMs, no Docker.
 
 ## Architecture Note
 
-This is structurally DMZ-shaped but enforced as a **three-legged firewall**: one router holds all inter-zone rules. A true DMZ requires two enforcement points so that compromise of one layer still leaves another. Adding a second enforcement boundary is on the roadmap.
+The lab separates traffic into tiers (app, database, and two testbeds), but a single router enforces every boundary between them. That is one enforcement point, and so one point of failure: if the router is compromised, every segment is exposed at once. A more resilient design adds a second enforcement point between the front and back tiers, so a breach of one does not expose the rest. That second enforcement point is on the roadmap.
 
 ## Networking
 
