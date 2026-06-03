@@ -85,7 +85,7 @@ ACCEPT  all   eth0  *     0.0.0.0/0        0.0.0.0/0    RELATED,ESTABLISHED
 
 - Apache 2.4 on Debian
 - DocumentRoot: `/var/www/html/nextcloud`
-- Listens on port 443 only as port 80 is closed (see debugging story 1)
+- Listens on port 443 only as port 80 is closed
 - Self-signed cert at `/etc/ssl/certs/nextcloud.crt`
 - `overwriteprotocol=https`, `trusted_domains` set
 
@@ -104,7 +104,7 @@ ACCEPT  all   eth0  *     0.0.0.0/0        0.0.0.0/0    RELATED,ESTABLISHED
 
 ## What broke
 
-Three problems worth reading about. Full writeups on the blog: [link].
+Three problems worth reading about. Full writeups on the [Blog](https://rudrapatel.hashnode.dev/multi-tier-virtual-homelab).
 
 - WireGuard does not encrypt end to end. A capture on `wg0` showed a Nextcloud password in cleartext until I forced TLS at the app layer. The tunnel protects the hop, not the application.
 - A WG peer silently failed to register. Two bugs at once: the client public key was a copy of the server's, and `AllowedIps` was miscased (it must be `AllowedIPs`). wg-quick ignores both without warning.
